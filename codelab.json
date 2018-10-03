@@ -1,0 +1,25 @@
+{
+   "environment": "web",
+   "source": "",
+   "format": "md",
+   "prefix": "../../",
+   "mainga": "",
+   "updated": "",
+   "id": "hls-xyz-chatbot",
+   "duration": 67,
+   "title": "Create a location-aware chatbot with HERE Location Services, XYZ, and Twilio",
+   "author": "dbabbs",
+   "summary": "In this codelab you will learn how to create a location-aware chatbot with HERE Location Services, XYZ, and Twilio",
+   "theme": "web",
+   "status": [
+      "draft"
+   ],
+   "category": [
+      "Web"
+   ],
+   "tags": [
+      "web"
+   ],
+   "feedback": "",
+   "url": ""
+}
