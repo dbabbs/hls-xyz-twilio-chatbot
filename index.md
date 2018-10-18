@@ -4,7 +4,7 @@
 
 *Duration is 3 min*
 
-We recently announced our partnership with the Greater Chicago Food Depository (GCFD) to build a location-aware chatbot to help clients of GCFD (individuals who visit GCFD food pantries) find nearby food pantries.
+We recently partnered with the Greater Chicago Food Depository (GCFD) to build a location-aware chatbot that helps those in need find nearby food pantries.  The way the chatbot works is:
 
 The bot works as such:
 
@@ -23,13 +23,15 @@ This tutorial assumes some familiarity with JavaScript and Node.js.
 In this tutorial, we’ll be using a few different services:
 
 -   [HERE Geocoding API](https://developer.here.com/documentation/geocoder/topics/quick-start-geocode.html): a service to translate coordinates to addresses and vice-versa.
--   [HERE Routing API](https://developer.here.com/documentation/routing/topics/request-a-simple-route.html): a service to provide direction information from point A to B.
--   [HERE XYZ Hub API](https://www.here.xyz/api/): a flexible and powerful location cloud management system.
+-   [HERE XYZ Hub API](https://www.here.xyz/api/): a cloud-based location storage service.
 -   [Twilio SMS API](https://www.twilio.com/docs/sms): a service to send SMS messages programmatically.
 
 Navigate to the [HERE Developer Portal](http://developer.here.com) to create a new project. If you don’t already have an account, now would be a good time to make one.
 
-Additionally, navigate to the [Twilio Developer Console](twilio.com/console) and create a new Programmable SMS project.
+Additionally, navigate to the [Twilio Developer Console](https://twilio.com/console) and create a new Programmable SMS project.
+
+__Architecture__
+![arch](img/3.png)
 
 ## Setting up the Node.js skeleton
 
@@ -55,15 +57,15 @@ app.use(bodyParser.urlencoded({
 
 //HERE credentials
 const here = {
-   id: 'YOUR-HERE-ID',
-   code: 'YOUR-HERE-CODE',
-   token: 'YOUR-HERE-XYZ-TOKEN'
+   id: 'HERE_APP_ID',
+   code: 'HERE_APP_CODE',
+   token: 'HERE_XYZ_TOKEN'
 }
 
 //Twilio credentials:
 const twilio = {
-   sid: 'YOUR-TWILIO-SID',
-   token: 'YOUR-TWILIO-TOKEN'
+   sid: 'TWILIO_SID',
+   token: 'TWILIO_TOKEN'
 }
 
 const client = require('twilio')(twilio.sid, twilio.token);
@@ -71,7 +73,7 @@ const client = require('twilio')(twilio.sid, twilio.token);
 
 Be sure to swap out your HERE app id/code and Twilio sid/token. Leave the HERE token value as empty for now; we'll be obtaining the HERE token in a later step.
 
-Additionally, run the command `npm install` command for `express`, `twilio`, `body-parser`, `@turf/turf`, and `request` in the directory of the `server.js` file to ensure the correct dependencies are installed.
+Additionally, run the command `npm install express twilio body-parser @turf/turf request` in the directory of the `server.js` file to ensure the correct dependencies are installed.
 
 We're also going to need to install [ngrok](https://ngrok.com/) to run a tunnel providing an externally available URL to our server.
 
@@ -86,7 +88,9 @@ npm install -g ngrok
 
 Now that our skeleton is complete, we can start writing some logic to send messages with the Twilio Programmable SMS API.
 
-We'll want to configure our server to reply to messages sent to our Twilio phone number.
+Once Twilio is configured correctly, the following code will enable our bot to reply with 'Hello, there!' anytime you text the Twilio phone number.
+
+We'll want to configure our server to reply to messages sent to our Twilio phone number. In the `server.js` file, add the following code:
 
 ```javascript
 app.post('/sms', (req, res) => {
@@ -101,15 +105,13 @@ http.createServer(app).listen(1337, () => {
 });
 ```
 
-Once Twilio is configured correctly, the above code will enable our bot to reply with 'Hello, there!' anytime you text the Twilio phone number.
-
-To get the server up and running, you're going to want to run `node server.js` (alternatively `nodemon server.js` to eliminate the need to restart the server) in the command line. In order to make your server publicly accessible, you'll want to run the command `ngrok http 1337`. Port 1337 is now exposed to the public internet.
+To get the server up and running, you're going to want to run `node server.js` (alternatively `nodemon server.js` if you have it installed. This eliminates the need to restart the server) in the command line. In order to make your server publicly accessible, you'll want to run the command `ngrok http 1337`. Port 1337 is now exposed to the public internet.
 
 Copy the forwarding URL (highlighted in the below screenshot) provided by the ngrok console.  
 
 ![ngrok](/img/0.png)
 
-Take the copied URL and configure it as a webhook for your [phone number](https://www.twilio.com/console/phone-numbers/incoming). Under the Messaging header, paste this URL followed by /sms in the *message comes* in field.
+[Configure a Twilio phone number](https://support.twilio.com/hc/en-us/articles/223136207-Getting-started-with-your-new-Twilio-phone-number). Take the copied URL and configure it as a webhook for your [phone number](https://www.twilio.com/console/phone-numbers/incoming). Under the Messaging header, paste this URL followed by /sms in the *message comes* in field.
 
 ![twilio url](/img/1.png)
 
@@ -147,6 +149,12 @@ here xyz create -t "food pantries" -d "locations for GCFD food pantries"
 ```
 The `-t` and `-d` options are for the space's title and description.
 
+Upon completion, the  `here xyz create` command will a success message like:
+```
+xyzspace 'zgsrj7y4' created successfully
+```
+Be sure, to copy the id in quotations--we'll be using this in a future step.
+
 Here is a peak at the data we'll be uploading to the XYZ Space:
 
 ```json
@@ -173,6 +181,7 @@ Here is a peak at the data we'll be uploading to the XYZ Space:
    }]
 }
 ```
+
 You can download the [whole file here](/data/food_pantries.geojson).
 
 To upload the data to the space, use the following command:
@@ -189,8 +198,9 @@ Go ahead and copy one of these (one with reading and writing permissions), and p
 
 Congrats! We've now created a new XYZ Space and uploaded data. To verify you've successfully created the space, you can run the following command:
 ```
-here xyz list
+here xyz show YOUR_SPACE_ID -w
 ```
+This command will open up the space in the [HERE XYZ GeoJSON viewer](http://geojson.tools/).
 
 ## Location Services
 
@@ -200,7 +210,7 @@ So far, we've configured our SMS infrastructure (Twilio) and our database (XYZ S
 
 We'll want to perform the following tasks:
 - Transform our user received input (addresses like *425 W. Randolph Street Chicago*) into coordinates using the Geocoder API.
-- Search for the closest food pantries in our XYZ Space by performing a routing request from the starting coordinates to the coordinates of each food pantry. This is by no means a computationally efficient method, but it is adequate for such a small dataset.
+- Search for the closest food pantries in our XYZ Space by performing a distance request from the starting coordinates to the coordinates of each food pantry. This is by no means a computationally efficient method, but it is adequate for such a small dataset.
 - Return the top 3 closest food pantries back to the user.
 
 For distance calculations, we will be using the *[as the crow flies](https://en.wikipedia.org/wiki/As_the_crow_flies)* distance. This means we will be calculating distance as the closest path between points A and B on a spherical earth, regardless of road networks. This is also known as the [haversine formula](https://en.wikipedia.org/wiki/Haversine_formula).
@@ -245,8 +255,8 @@ For more information about the possible XYZ Space API requests, take a look at t
 
 Staying inside of the geocode `request.get()` block, we can add the following code:
 ```javascript
-const xyzSpaceId = 'B3MUHZVh'
-const xyzURL = `https://xyz.api.here.com/hub/spaces/${xyzSpaceId}/search?access_token=${here.token}`
+const xyzSpaceId = 'SPACE_ID';
+const xyzURL = `https://xyz.api.here.com/hub/spaces/${xyzSpaceId}/search?access_token=${here.token}`;
 request.get(xyzURL, (error, response, body) => {
    const xyzJson = JSON.parse(body);
 });
@@ -347,15 +357,15 @@ app.use(bodyParser.urlencoded({
 
 //HERE credentials
 const here = {
-   id: 'YOUR-HERE-ID',
-   code: 'YOUR-HERE-CODE',
-   token: 'YOUR-HERE-XYZ-TOKEN'
+   id: 'HERE_APP_ID',
+   code: 'HERE_APP_CODE',
+   token: 'HERE_XYZ_TOKEN'
 }
 
 //Twilio credentials:
 const twilio = {
-   sid: 'YOUR-TWILIO-SID',
-   token: 'YOUR-TWILIO-TOKEN'
+   sid: 'TWILIO_SID',
+   token: 'TWILIO_TOKEN'
 }
 
 const client = require('twilio')(twilio.sid, twilio.token);
@@ -371,8 +381,8 @@ app.post('/sms', (req, res) => {
          lat: geocodeJson.Response.View[0].Result[0].Location.DisplayPosition.Latitude,
          long: geocodeJson.Response.View[0].Result[0].Location.DisplayPosition.Longitude
       };
-      const xyzSpaceId = 'YOUR-SPACE-ID';
-      const xyzURL = `https://xyz.api.here.com/hub/spaces/${xyzSpaceId}/search?access_token=${here.token}`
+      const xyzSpaceId = 'SPACE_ID';
+      const xyzURL = `https://xyz.api.here.com/hub/spaces/${xyzSpaceId}/search?access_token=${here.token}`;
       request.get(xyzURL, (error, response, body) => {
          const xyzJson = JSON.parse(body);
 
@@ -389,7 +399,7 @@ app.post('/sms', (req, res) => {
 
          const output = `Here are the 3 closest food pantries near ${query}: \n\n ${features.map(x =>
             `${x.properties.Name}\n${x.properties.distanceFromOrigin.toFixed(2)} miles away\n${x.properties['Phone number']}\n\n`
-         ).join('')}`
+         ).join('')}`;
 
          twiml.message(output);
          res.writeHead(200, {
